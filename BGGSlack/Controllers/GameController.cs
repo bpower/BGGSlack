@@ -63,22 +63,21 @@ namespace BGGSlack.Controllers
             }
         }
 
+
         private IEnumerable<Game> GetGames(IEnumerable<string> ids)
         {
-            return ids
-                .Select(GetThisGame)
+            string detailUrl = string.Format("http://www.boardgamegeek.com/xmlapi/boardgame/{0}?stats=1", ids.Aggregate<string, string>(null, (old, id) => id + (old == null ? "" : "," + old)));
+            var detailResult = XDocument.Load(detailUrl);
+            return detailResult
+                .Descendants("boardgame")
+                .Select(GetGame)
                 .ToList();
         }
 
-        //For a particular game, get the details
-        //TODO: there is probably a BGG API where I can get these
-        //details back in one shot, rather than hitting it N times for each match.
-        //If not, consider threading this. It's damn slow with lots of matches (i.e. 'Coup')
-        private Game GetThisGame(string id)
+
+        private static Game GetGame(XElement bg)
         {
-            string detailUrl = string.Format("http://www.boardgamegeek.com/xmlapi/boardgame/{0}?stats=1", id);
-            var detailResult = XDocument.Load(detailUrl);
-            var bg = detailResult.Elements().First().Elements().First();
+            var id = bg.Attribute("objectid").Value;
             var year = bg.Element("yearpublished").Value;
             var nameNode = bg.Elements("name").Where(e => e.Attribute("primary") != null && e.Attribute("primary").Value == "true").FirstOrDefault();
             var name = nameNode != null ? nameNode.Value : bg.Elements("name").First().Value;
@@ -106,7 +105,7 @@ namespace BGGSlack.Controllers
         }
 
         //gets all game IDs that come back from BGG's search API
-        private IEnumerable<string> GetGameIDs(string searchCriteria)
+        private static IEnumerable<string> GetGameIDs(string searchCriteria)
         {
             var searchResult = XDocument.Load(string.Format(@"http://www.boardgamegeek.com/xmlapi2/search?query={0}", searchCriteria.Replace(' ', '+')));
 
