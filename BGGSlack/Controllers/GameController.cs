@@ -17,24 +17,26 @@ namespace BGGSlack.Controllers
         {
             //if all of them have ranks, return the highest ranked thing
             int dontcare;
-            
             if(games.All(g => int.TryParse(g.BGRankNum, out dontcare)))
             {
                 return games.OrderBy(g => long.Parse(g.BGRankNum)).First();
             }
 
-            var nameMatch = games.Where(g => g.Name.Equals(searchString, StringComparison.CurrentCultureIgnoreCase));
-
             //if there is only one with an exact name match, return that one
+            var nameMatch = games.Where(g => g.Name.Equals(searchString, StringComparison.CurrentCultureIgnoreCase));
             if (nameMatch.Count() == 1)
             {
                 return nameMatch.First();
             }
 
             //else return the most popular one
-            return games.OrderByDescending(g => g.UsersRated).First();
+            return games
+                .OrderByDescending(g => g.UsersRated)
+                .First();
         }
 
+        //Primary entry point for Slack
+        //Need to create a request object. This many parameters is ugly.
         public IHttpActionResult GetGame(string token, string team_id, string channel_id, string channel_name, string user_id, string user_name, string command, string text)
         {
             var ids = GetGameIDs(text);
@@ -47,11 +49,12 @@ namespace BGGSlack.Controllers
                 return Ok();
             }
 
-            return Ok("Not Found");
+            return Ok("Not Found"); //Tell the user privately through Slackbot
         }
 
         //Posts arbitrary content to a Slack channel on B.
         //Concern: Slack (move to a Slack-centric class)
+        //This needs to be handed off to a background threadpool
         private void PostToChannel(string channel_id, string result)
         {
             using (var client = new HttpClient())
